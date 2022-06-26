@@ -13,4 +13,10 @@ module MUX_4_to_1(out,i0,i1,i2,i3,s0,s1);
     and and2 (y2,i2,s0bar,s1);
     and and3 (y3,i3,s0,s1);
     or or0 (out,y0,y1,y2,y3);
+
+/* Dataflow Modeling
+    assign out = (SEL==2'b00 & IN[0]) | (SEL==2'b01 & IN[1]) | (SEL==2'b10 & IN[2]) | (SEL==2'b11 & IN[3]);
+    or
+    assign out = SEL[1]?(SEL[0]?IN[3]:IN[2]):(SEL[0]?IN[1]:IN[0]);
+*/
 endmodule

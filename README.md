@@ -1,13 +1,21 @@
+# prerequisite
+```sh
+sudo apt install make
+sudo apt install iverilog
+sudo apt install gtkwave
+```
+
+```sh
+$ make            # compile
+$ make DUMP=1     # compile and generate dump file for wave
+$ make wave       # open generated dump vcd file using GTKWAVE
+$ make clean      # remove all build up files.
+```
+
 # Verilog HDL Summary
 - Line terminator: Semicolon ```;```
 - Single line comment: ```//```
 - Multiple line comment: ```/* ... */```
-
-## Operator
-Verilog has three types of operator.
-- Unary: eg) ```a=~b;```
-- Binary: eg) ```a=b&&c;```
-- ternary: eg) ```a=b?c:d;```
 
 ## Identifier & Keyword
 - Identifier: the name of the object
@@ -402,11 +410,11 @@ Therefore, connection rule should be as follows
 - It may not be implemented as hardware, but software.
 - It is commonly called 'testbench'.
 
-## Gate Level Modeling
+# Gate Level Modeling
 - Intuitive for user with knowledge of digital logic design
 - One-to-one correspondence between the logic circuit and Verilog
 
-### Gate Type
+## Gate Type
 Note that the following gate types (called 'primitives') are defined in Verilog already.
 These can be instantiated without gate module definition.
 Note that the name of primitives does not need to be specified. (But recommend to specify in order to reduce ambiguity)
@@ -430,7 +438,7 @@ buf b1 (OUT1,IN);            // OUT1 = IN
 not n1 (OUT1,OUT2,IN);       // OUT1 = OUT2 = ~IN
 ```
 
-### Gate delay
+## Gate delay
 Ideal gate may not have the transition delay, but practical does.
 Verilog simulate the gate delays as follows.
 
@@ -457,3 +465,227 @@ or #(2:3:4,3:4:5) o1 (out,i1,i2);   // Rise Delay: min=2, typ=3, max=4
 ```
 
 Gate delay is commonly determined or measured by fabricator.
+
+# DataFlow Modeling
+Dataflow modeling focuses on data flow between registers and how a design processes data rather than instantiation of individual gates.
+
+- Logic Synthensis: create a gate-level circuit from a dataflow design description using EDA (Electronic Design Automation) tool.
+- RTL Design: combination of dataflow modeling and behavioral modeling.
+
+Dataflow modeling is done by **'continuous assignment' using keyword ```assign```**.
+
+```assign``` is used to drive a value onto a net such as : ```assign LHS=RHS;```
+
+Continuous assignment means that LHS(left-hand side) changes as soon as RHS(right-hand side) changes
+
+Note that LHS must be 'assignable' variable and the value of LHS is driven continuously by RHS, which may be an expression.
+This fact gives a following constraint:
+
+|side|possible type|
+|:-:|:-:|
+|LHS|net or concatenation of net (either scalar or vector)|
+|RHS|expression consists of operator and operand (that is either registers or nets)|
+
+Delay values can be specified by inserting ```#<delay_time>``` after keyword ```assign```.
+
+eg)
+```verilog
+assign out=i1&i2;                             // dataflow modeling of and gate
+assign #10 out=i1&i2;                         // and gate with delay of 10 time unit
+
+assign addr[15:0]=addr1[15:0]^addr2[15:0];    // some address calculation using xor bitwise operation between addr1 and addr2
+
+assign {cout,sum[3:0]}=a[3:0]+b[3:0]+cin;     // dataflow modeling of 4 bit full adder.
+```
+## Operand of Expression in dataflow modeling
+- Can be any one of data types (```reg```, ```wire```, ```integer```, ```real```, ```time```)
+- may be restricted by operator (operator takes only certain types of operands)
+
+## Operator of Expression in dataflow modeling
+Verilog has three types of operator.
+- Unary: eg) ```a=~b;```
+- Binary: eg) ```a=b&&c;```
+- ternary: eg) ```a=b?c:d;```
+
+Operator can be classified as various type as below
+### 1. Arithmetic Operator
+
+These binary operations take two operands
+
+```verilog
+A=4'b0100; B=4'b0011;
+wire[3:0] C;
+
+assign C=A*B;    // multiplication:    C==4'b1100
+assign C=A/B;    // Division:          C==4'b0001
+assign C=A+B;    // Addition:          C==4'b0111
+assign C=A-B;    // Subtraction:       C==4'b0001
+assign C=A**B;   // Power:             overflow
+assign C=A%B;    // Modulus:           C==4'b0001
+```
+
+### 2. Logical Operator
+
+Logical operators always evaluate to a 1-bit 0 or 1 or x.
+
+Note that all the non-zero operand considered as logical 1.
+
+```verilog
+A=3; B=0; D=2'b0x; E==2'b10;
+wire C;
+
+assign C=A&&B;   // logical-and:    C==0
+assign C=A||B;   // logical-or:     C==1
+assign C=!A;     // logical-not:    C==0
+assign C=!B;     // logical-not:    C==1
+
+assign C=D&&E;   // C=(2'b0x)&&(2'b10): either 0 or 1 => C==X (don't care)
+```
+
+### 3. Relational Operator
+
+It works exactly same as C. Relational operators return a logical true 1 if the expression is true.
+
+```verilog
+A=4; B=3;
+X=4'b1010; Y=4'b1101; Z=4'b1xxx;
+wire C;
+
+assign C=A<=B;    // C==0 (less than or equal)
+assign C=A>B;     // C==1 (greater than)
+assign C=Y>=X;    // C==1 (greater than or equal)
+assign C=Y<Z;     // C==x (less than)
+```
+
+### 4. Equality Operator
+
+logical equality ```==``` and logical inequality ```!=``` returns logical evaluation result. It returns 'don't care' ```x``` if result varies with ```x``` in operand.
+
+Case equality ```===``` and Case inequality ```!==``` evaluates equality same as above, but it checks even casex and casez bits are identical or not and returns only 0 or 1.
+
+```verilog
+A=4; B=3;
+X=4'b1010; Y=4'b1101; Z=4'b1xxz; M=4'b1xxz; N=4'b1xxx;
+wire C;
+
+assign C=A==B;    // C==0 (logical equality)
+assign C=X!=Y;    // C==1 (logical inequality)
+assign C=X==z;    // C==x (logical equality; result depends on don't care bits in Z)
+assign C=Z===M;   // C==1 (case equality; all bits match)
+assign C=Z===N;   // C==0 (case equality; least significant bit does not match)
+assign C=M!==N;   // C==1 (case inequality; least significant bit does not match)
+```
+
+### 5. Bitwise Operator
+
+Note that bitwise operators performs a bit-by-bit operation (bitwise logical operation) on two operands, and it returns same size of bits.
+
+|sign|operation|
+|:-:|:-:|
+|~|negation|
+|&|and|
+|\||or|
+|^|xor|
+|~^ (^~)|xnor|
+
+
+```verilog
+X=4'b1010; Y=4'b1101; Z=4'b10x1;
+wire[3:0] W;
+
+assign W=~X;     // W==4'b0101 (negation)
+assign W=X&Y;    // W==4'b1000 (bitwise and)
+assign W=X|Y;    // W==4'b1111 (bitwise or)
+assign W=X^Y;    // W==4'b0111 (bitwise xor)
+assign W=X~^Y;   // W==4'b1000 (bitwise xnor)
+assign W=X&Z;    // W==4'b10x0 (bitwise and with x)
+```
+
+### 6. Reduction Operator
+
+Reduction operator is unary operator. It performs a bitwise operation on a single vector operand and yield a 1bit result. Refer the example below.
+
+|sign|operation|
+|:-:|:-:|
+|&|and|
+|~&|nand|
+|\||or|
+|~\||nor|
+|^|xor|
+|~^ (^~)|xnor|
+
+```verilog
+X=4'b1010;
+wire Y;
+
+assign Y=&X;     // Y==1'b0 (equivalent to 1 & 0 & 1 & 0)
+assign Y=~&X;    // Y==1'b1 (equivalent to ~(1&0&1&0))
+assign Y=|X;     // Y==1'b1 (equivalent to 1 | 0 | 1 | 0)
+assign Y=~|X;    // Y==1'b0 (equivalent to ~(1|0|1|0))
+assign Y=^X;     // Y==1'b0 (equivalent to 1 ^ 0 ^ 1 ^ 0) even parity checker
+assign Y=~^X;    // Y==1'b1 (equivalent to ~(1^0^1^0))    odd parity checker
+```
+
+### 7. Shift Operator
+
+|sign|operation|
+|:-:|:-:|
+|>>|shift right logical|
+|<<|shift left logical|
+|>>>|shift right arithmetic|
+|<<<|shift left arithmetic|
+
+Arithmetic shift may consider sign-extension. Thus sra may fill MSB with previous MSB while srl just fill with 0. Note that sll and sla may result same.
+
+```verilog
+X=4'b1100;
+wire[3:0] Y;
+
+assign Y=X>>1;     // Y==4'b0110 (shift right logical by 1)
+assign Y=X<<1;     // Y==4'b1000 (shift left logical by 1)
+assign Y=X<<2;     // Y==4'b0000 (shift left logical by 2)
+assign Y=X>>>1;    // Y==4'b1110 (shift right arithmetic by 1; MSB filled with 1 (sign-extended))
+```
+
+### 8. Concatenation Operator ```{ }``` 
+
+Concatenation operator appends multiple operator, and result an appended single vector (in order)
+
+```verilog
+A=1'b1; B=2'b00; C=2'b10; D=3'b110;
+
+assign Y={B,C};            // Y==4'b0010         (4'b00_10)
+assign Y={A,B,C,D,3'b011}; // Y==11'b10010110001 (11'b1_00_10_110_001)
+assign Y={A,B[0],C[1]};    // Y==3'b101          (3'b1_0_1)
+```
+
+### 9. Replicantion Operator (using nested concatenation operator ```{ { } }```)
+
+Replication operator replicate the operands and concatenate as many as the specified number.
+
+```verilog
+reg A;
+reg[1:0] B,C;
+reg[2:0] D;
+A=1'b1; B=2'b00; C=2'b10; D=3'b110;
+
+assign Y={4{A}};            // Y==4'b1111         (4'b1_1_1_1)
+assign Y={4{A},2{B}};       // Y==8'b11110000     (8'b1_1_1_1_00_00)
+assign Y={4{A},2{B},C};     // Y==11'b11110000110 (11'b1_1_1_1_00_00_110)
+```
+
+### 10. Conditional Operator ```? :``` 
+
+Conditional operator is also known as ternary operator.
+
+Usage: ```<condition_expression>?<true_expression>:<false_expression>```
+
+The condition is evaluated first, then returns corresponding expression. Note that conditional operator can be nested as below.
+
+```verilog
+assign out=(control==1'b1)?in1:in0;    // 2-to-1 MUX
+
+assign out=(control[1]==1'b1)?((control[0]==1'b1)?in3:in2):((control[0]==1'b1)?in1:in0); // 4-to-1 MUX
+```
+
+# Behavioral Modeling
