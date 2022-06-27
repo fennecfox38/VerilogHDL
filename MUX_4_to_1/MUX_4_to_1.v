@@ -15,8 +15,22 @@ module MUX_4_to_1(out,i0,i1,i2,i3,s0,s1);
     or or0 (out,y0,y1,y2,y3);
 
 /* Dataflow Modeling
-    assign out = (SEL==2'b00 & IN[0]) | (SEL==2'b01 & IN[1]) | (SEL==2'b10 & IN[2]) | (SEL==2'b11 & IN[3]);
+    assign out = (~s1&~s0&i0) | (~s1&s0&i1) | (s1&~s0&i2) | (s1&s0&i3);
     or
-    assign out = SEL[1]?(SEL[0]?IN[3]:IN[2]):(SEL[0]?IN[1]:IN[0]);
+    assign out = s1?(s0?i3:i2):(s0?i1:i0);
+*/
+/* Behavioral Modeling
+    output reg out;
+    input wire i0,i1,i2,i3;
+    input wire s1,s0;
+
+    always @(*)
+        case ({s1,s0})
+            2'h0: out=i0;
+            2'h1: out=i1;
+            2'h2: out=i2;
+            2'h3: out=i3;
+            default: $display("invalid control signal");
+        endcase
 */
 endmodule

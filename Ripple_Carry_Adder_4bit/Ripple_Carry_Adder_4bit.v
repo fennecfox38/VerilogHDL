@@ -1,10 +1,11 @@
 `include "../Full_Adder/Full_Adder.v"
 
-module Ripple_Carry_Adder_4bit(s,cout,a,b,cin);
-    output wire[3:0] s;
-    output wire cout;
-    input wire[3:0] a,b;
-    input wire cin;
+module Ripple_Carry_Adder_4bit(
+    output wire[3:0] s,
+    output wire cout,
+    input wire[3:0] a,b,
+    input wire cin
+);
 
     wire c1,c2,c3;
 

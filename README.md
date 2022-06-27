@@ -580,7 +580,7 @@ assign C=M!==N;   // C==1 (case inequality; least significant bit does not match
 
 Note that bitwise operators performs a bit-by-bit operation (bitwise logical operation) on two operands, and it returns same size of bits.
 
-|sign|operation|
+|symbol|operation|
 |:-:|:-:|
 |~|negation|
 |&|and|
@@ -605,7 +605,7 @@ assign W=X&Z;    // W==4'b10x0 (bitwise and with x)
 
 Reduction operator is unary operator. It performs a bitwise operation on a single vector operand and yield a 1bit result. Refer the example below.
 
-|sign|operation|
+|symbol|operation|
 |:-:|:-:|
 |&|and|
 |~&|nand|
@@ -628,7 +628,7 @@ assign Y=~^X;    // Y==1'b1 (equivalent to ~(1^0^1^0))    odd parity checker
 
 ### 7. Shift Operator
 
-|sign|operation|
+|symbol|operation|
 |:-:|:-:|
 |>>|shift right logical|
 |<<|shift left logical|
@@ -689,3 +689,155 @@ assign out=(control[1]==1'b1)?((control[0]==1'b1)?in3:in2):((control[0]==1'b1)?i
 ```
 
 # Behavioral Modeling
+Behavioral Modeling can be done by two basic statement of procedure block: ```initial``` and ```always```
+
+Multiple behavioral statements must be grouped in order to be used by ```initial``` and ```always```. 
+It can be grouped by using keywords ```begin``` and ```end```.
+
+If ```#<delay_time>``` is seen before a statement, then the statement is executed ```<delay_time>``` time unit after the current simulation time.
+
+## ```initial``` statement
+
+```initial``` block starts at time 0 and **executes only once** during a simulation.
+
+Multiple initial block start to execute concurrently at time 0, but finishes execution in various time.
+
+## ```always``` statement
+
+```always``` block starts at time 0 and executes the statement **continuously in a looping fashion**.
+
+Multiple always block starts to execute concurrently at time 0, and operates independently in a parallel manner.
+
+### Event control ```@()``` for ```always``` statement
+
+always statement can be triggered by a particular event if ```always @ (<trigger_signal_list>)```
+
+keyword ```posedge``` or ```negedge``` can be used to make sensitive to transition edge.
+
+eg)
+```verilog
+module stimulus
+    reg x,y,clk;
+    initial
+        clk=1'b0;
+    initial begin
+        x=1'b0;
+        #5 y=1'b1;
+    end
+    always #10
+        clk=~clk;
+    always @ (posedge clk) begin
+        x=~x;
+        y=~y;
+    end
+    always @(*)
+        $display(x,y);
+endmodule
+```
+
+## Procedural Assignment
+
+The values should remain unchanged until another procedural assignment update the variable with a different value. (unlike dataflow modeling)
+
+Thus left-hand side value must be ```reg``` type in behavioral modeling, while ```wire``` in dataflow modeling.
+
+### Blocking Assignments ```<LHS> = <RHS>```
+
+Blocking assignment statements are executed in the order they are specified in a sequential block.
+
+### Non-blocking Assignments ```<LHS> <= <RHS>```
+
+Non-blocking assignment allow scheduling of assignments without blocking execution of the statements. In other words, non-blocking assignment statement in the block without waiting for the non-blocking statement to complete execution.
+
+```verilog
+initial begin
+    A=4'h0; B=4'h0; C=4'h0; D=4'h0;
+end
+
+always @(posedge CLK)    // B is ahead of A by 1
+begin
+    A=A+1;
+    B=A+1;               // executed after A=A+1; is done.
+end
+
+always @(posedge CLK)    // D is the same as C
+begin
+    C<=C+1;
+    D<=C+1;              // executed concurrently with C<=C+1;
+end
+```
+
+### Conditional Statement: ```if``` and ```else```
+Similar with if statement in C.
+
+```verilog
+if(<expression1>) <true_statement1>;
+else if(<expression2>) <true_statement2>;
+else if(<expression3>) <true_statement3>;
+else <default_statement>;
+```
+
+### Case Statement using ```case``` (or ```casex```, ```casez```), ```endcase```, ```default```
+Similar with switch-case statement in C.
+
+Case statement is alternative of if-elseif-else statement in Verilog. 
+```verilog
+case(<expression1>)
+    <alternative1>: <statement1>;
+    <alternative2>: <statement2>;
+    <alternative3>: <statement3>;
+    default: <default_statement>;
+endcase
+```
+
+keyword ```casex``` allows all x and z values to be considered as don't care. (Only Non-x and Non-z positions in the case expression are compared.)
+
+keyword ```casez``` allows all z values to be considered as don't care.
+
+```verilog
+reg[3:0] encoding;
+reg next_state;
+
+casex(encoding)
+    4'b1xxx: next_state=3;
+    4'bx1xx: next_state=2;
+    4'bxx1x: next_state=1;
+    4'bxxx1: next_state=0;
+    default: next_state=0;
+endcase
+```
+Note that case statement is alternative representation of if statement in Verilog.
+If encoding==4'b0110, then next_state will be 2 (not 1) because case statement above will check 4'bx1xx prior than 4'bxx1x.
+
+# File I/O
+
+## Opening a file: ```$fopen```
+Usage: ```<file_handle> = $fopen("<filename>");```
+
+## Writing to the file: ```$fdisplay```, ```$fmonitor```, ```fwrite```
+Usage: ```$fdisplay(<file_handle>,<arguments>);```
+
+## Closing a file: ```$fclose```
+Usage: ```$fclose(<file_handle>);```
+
+## Initializing memeory from file: ```$readmemb``` to read a file as binary / ```$readmemh``` to read a file as hexadecimal
+Usage: ```$readmemb("<file_name>",<mem_name>,<start_addr>,<end_addr>);``` (```<start_addr>``` and ```<end_addr>``` are optional)
+
+eg)
+
+```verilog
+module test;
+    reg[7:0] memory[0:7];    // 8 byte memeory
+    integer i;
+    reg CLK;
+
+    initial begin
+        CLK=1'b0;
+        $readmemb("init.dat",memory);
+    end
+    always #5
+        CLK=~CLK;
+    always @(posedge CLK)
+        $display("Memory[%0h]=%b",i,memory[i]);     
+endmodule
+```
